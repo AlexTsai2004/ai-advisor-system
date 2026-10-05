@@ -1,0 +1,8 @@
+{
+  "demo_user": {
+    "cash": 500000,
+    "initial_cash": 500000,
+    "positions": [],
+    "settled": []
+  }
+}

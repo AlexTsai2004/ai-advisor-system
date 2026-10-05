@@ -1,0 +1,6 @@
+FROM python:3.11-slim
+WORKDIR /app
+RUN pip install --no-cache-dir flask yfinance requests apscheduler
+COPY manager/ .
+COPY shared_init/ /shared_init/
+CMD ["python", "app.py"]

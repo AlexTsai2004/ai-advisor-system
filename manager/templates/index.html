@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI 理財顧問系統</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0f172a; --card: #1e293b; --card2: #263348;
+  --border: #334155; --text: #ffffff; --muted: #94a3b8;
+  --green: #22c55e; --red: #ef4444; --blue: #3b82f6;
+  --yellow: #eab308; --purple: #a855f7; --radius: 10px;
+}
+body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; }
+.topbar { background: var(--card); border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+.brand { font-size: 1.1rem; font-weight: 700; }
+.tabs { display: flex; gap: 4px; background: var(--card); padding: 8px 24px; border-bottom: 1px solid var(--border); }
+.tab { padding: 7px 18px; border-radius: 6px; cursor: pointer; color: var(--muted); font-weight: 500; transition: all .15s; border: none; background: none; font-size: 14px; }
+.tab.active { background: var(--blue); color: #fff; }
+.tab:hover:not(.active) { background: var(--card2); color: var(--text); }
+.page { display: none; padding: 20px 24px; max-width: 1100px; }
+.page.active { display: block; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; }
+.card-title { font-weight: 600; margin-bottom: 12px; font-size: 15px; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; }
+input, select, textarea { background: var(--card2); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 8px 12px; font-size: 14px; outline: none; width: 100%; }
+textarea { resize: vertical; min-height: 70px; }
+button { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-size: 14px; font-weight: 500; transition: opacity .15s; }
+button:hover { opacity: .85; }
+.btn-blue   { background: var(--blue);   color: #fff; }
+.btn-green  { background: var(--green);  color: #fff; }
+.btn-red    { background: var(--red);    color: #fff; }
+.btn-yellow { background: var(--yellow); color: #000; }
+.btn-muted  { background: var(--card2);  color: var(--muted); }
+.badge { display: inline-block; padding: 2px 9px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+.badge-queued    { background: #334155; color: #94a3b8; }
+.badge-running   { background: #1e3a5f; color: #60a5fa; }
+.badge-responded { background: #14532d; color: #86efac; }
+.badge-accepted  { background: #14532d; color: #4ade80; }
+.badge-rejected  { background: #3f1515; color: #fca5a5; }
+.badge-failed    { background: #7f1d1d; color: #fca5a5; }
+.badge-expired   { background: #422006; color: #fbbf24; }
+.badge-cancelled { background: #1e293b; color: #64748b; }
+.badge-no-rec    { background: #422006; color: #fbbf24; }
+.badge-alive  { background: #14532d; color: #86efac; }
+.badge-dead   { background: #7f1d1d; color: #fca5a5; }
+.badge-suspected { background: #422006; color: #fbbf24; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+.dot-alive    { background: var(--green); }
+.dot-dead     { background: var(--red); }
+.dot-suspected{ background: var(--yellow); }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); }
+th { color: var(--muted); font-weight: 500; font-size: 13px; }
+tr:hover td { background: var(--card2); }
+.job-card { border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 10px; background: var(--card); }
+.rec-card { border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-top: 8px; background: var(--card2); }
+.rec-buttons { display: flex; gap: 8px; margin-top: 8px; }
+.worker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+.worker-card { background: var(--card2); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+.stat-bar { background: var(--border); border-radius: 3px; height: 6px; margin-top: 4px; }
+.stat-fill { height: 100%; border-radius: 3px; background: var(--blue); }
+.toast-area { position: fixed; bottom: 20px; right: 20px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }
+.toast { padding: 12px 18px; border-radius: 8px; color: #fff; font-size: 14px; max-width: 320px; animation: fadeIn .2s; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.toast-ok  { background: #166534; }
+.toast-err { background: #991b1b; }
+.pnl-pos { color: var(--green); } .pnl-neg { color: var(--red); }
+.spin { display: inline-block; animation: spin 1s linear infinite; } @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="brand">🤖 AI 理財顧問系統</span>
+  <span style="color:var(--muted);font-size:13px;">CPU-only · 3 顧問並行</span>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('consult')">💬 諮詢</button>
+  <button class="tab" onclick="switchTab('portfolio')">📈 投資組合</button>
+  <button class="tab" onclick="switchTab('monitor')">🖥 節點監控</button>
+  <button class="tab" onclick="switchTab('advisor')">🏆 顧問績效</button>
+</div>
+
+<!-- ── 諮詢頁 ─────────────────────────────────────── -->
+<div id="tab-consult" class="page active">
+  <div class="card">
+    <div class="card-title">提問</div>
+    <textarea id="query" placeholder="例：我有 50000 想穩健投資，給我建議"></textarea>
+    <div class="row" style="margin-top:10px; align-items:center;">
+      <select id="mode" style="max-width:160px;">
+        <option value="single">單一顧問</option>
+        <option value="fanout">一鍵問三位</option>
+      </select>
+      <select id="advisor" style="max-width:160px;">
+        <option value="advisor_qwen">穩健哥</option>
+        <option value="advisor_llama">中道姐</option>
+        <option value="advisor_gemma">衝勁王</option>
+      </select>
+      <button class="btn-blue" onclick="submitConsult()">送出</button>
+    </div>
+  </div>
+
+  <div id="jobs-list"></div>
+  <div style="margin-bottom:10px;">
+    <button class="btn-muted" onclick="loadJobs()" style="font-size:13px;">↻ 刷新工作列表</button>
+  </div>
+</div>
+
+<!-- ── 投資組合頁 ───────────────────────────────────── -->
+<div id="tab-portfolio" class="page">
+  <div class="card" id="portfolio-summary">載入中...</div>
+  <div class="card">
+    <div class="card-title">現有持倉</div>
+    <div id="positions-list"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">已結算交易</div>
+    <table>
+      <thead><tr><th>股票</th><th>股數</th><th>買入價</th><th>賣出價</th><th>損益</th><th>報酬率</th><th>顧問</th></tr></thead>
+      <tbody id="settled-list"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── 節點監控頁 ───────────────────────────────────── -->
+<div id="tab-monitor" class="page">
+  <div class="row" style="margin-bottom:14px; align-items:center;">
+    <button class="btn-yellow" onclick="tickPrice('random')">⏩ 快轉股價（隨機）</button>
+    <button class="btn-muted"  onclick="tickPrice('real')">⏩ 快轉股價（真實）</button>
+    <button class="btn-muted"  onclick="loadWorkers()" style="margin-left:auto;">↻ 刷新</button>
+  </div>
+  <div class="worker-grid" id="workers-grid"></div>
+</div>
+
+<!-- ── 顧問績效頁 ───────────────────────────────────── -->
+<div id="tab-advisor" class="page">
+  <div id="advisor-stats"></div>
+</div>
+
+<div class="toast-area" id="toasts"></div>
+
+<script>
+// ── utils ──────────────────────────────────────────────────────────────────
+function toast(msg, ok=true) {
+  const d = document.createElement('div');
+  d.className = 'toast ' + (ok ? 'toast-ok' : 'toast-err');
+  d.textContent = msg;
+  document.getElementById('toasts').appendChild(d);
+  setTimeout(() => d.remove(), 3500);
+}
+
+async function api(method, path, body) {
+  const opts = { method, headers: {'Content-Type':'application/json'} };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(path, opts);
+  return r.json();
+}
+
+function fmtPnl(v) {
+  if (v == null) return '—';
+  const cls = v >= 0 ? 'pnl-pos' : 'pnl-neg';
+  return `<span class="${cls}">${v >= 0 ? '+' : ''}${Number(v).toLocaleString()}</span>`;
+}
+
+function statusBadge(s) {
+  const map = {
+    QUEUED:'queued', RUNNING:'running', RESPONDED:'responded',
+    RESPONDED_NO_REC:'no-rec', ACCEPTED:'accepted', REJECTED:'rejected',
+    FAILED:'failed', EXPIRED:'expired', CANCELLED:'cancelled',
+    ORPHANED:'running',
+  };
+  return `<span class="badge badge-${map[s]||'queued'}">${s}</span>`;
+}
+
+// ── Tab switching ────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['consult','portfolio','monitor','advisor'][i]===name));
+  document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id==='tab-'+name));
+  if (name==='portfolio') loadPortfolio();
+  if (name==='monitor')   loadWorkers();
+  if (name==='advisor')   loadAdvisors();
+}
+
+// ── 諮詢 ─────────────────────────────────────────────────────────────────────
+async function submitConsult() {
+  const q = document.getElementById('query').value.trim();
+  if (!q) return toast('請輸入問題', false);
+  const mode   = document.getElementById('mode').value;
+  const advisor = document.getElementById('advisor').value;
+  const body = { query: q, mode };
+  if (mode === 'single') body.advisor = advisor;
+  const res = await api('POST', '/api/consult', body);
+  if (res.job_id || res.group_id) {
+    toast('已送出，等待顧問回應...');
+    setTimeout(loadJobs, 500);
+  } else {
+    toast(res.message || '送出失敗', false);
+  }
+}
+
+async function loadJobs() {
+  const jobs = await api('GET', '/api/jobs');
+  const el = document.getElementById('jobs-list');
+  if (!jobs.length) { el.innerHTML = '<div style="color:var(--muted);padding:20px 0">目前無工作</div>'; return; }
+
+  el.innerHTML = jobs.map(j => {
+    const recs = (j.recommendations||[]).map(r => {
+      const decided = r.user_decision;
+      const btns = decided
+        ? `<span class="badge badge-${decided==='accept'?'accepted':'rejected'}">${decided==='accept'?'已採納':'已跳過'}</span>`
+        : `<div class="rec-buttons">
+            <button class="btn-green" onclick="decide('${r.rec_id}','accept')">採納</button>
+            <button class="btn-muted" onclick="decide('${r.rec_id}','reject')">跳過</button>
+           </div>`;
+      return `<div class="rec-card">
+        <b>${r.stock}</b> · ${r.action} · ${r.shares} 股
+        <div style="color:var(--muted);margin:4px 0">${r.rationale}</div>
+        ${btns}
+      </div>`;
+    }).join('');
+
+    const canDel = j.status === 'QUEUED';
+    return `<div class="job-card">
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <span style="font-weight:600">${j.query?.slice(0,60)||'—'}</span>
+        <div class="row" style="gap:8px;align-items:center;">
+          ${statusBadge(j.status)}
+          ${j.assigned_worker ? `<span style="color:var(--muted);font-size:12px">${j.assigned_worker}</span>` : ''}
+          ${canDel ? `<button class="btn-red" style="padding:4px 10px;font-size:12px" onclick="deleteJob('${j.id}')">刪除</button>` : ''}
+        </div>
+      </div>
+      ${j.response_text ? `<div style="color:var(--muted);font-size:13px;margin-bottom:8px;max-height:80px;overflow:auto">${j.response_text.slice(0,300)}...</div>` : ''}
+      ${recs}
+      ${j.elapsed_ms ? `<div style="color:var(--muted);font-size:12px;margin-top:6px">回應時間：${(j.elapsed_ms/1000).toFixed(1)}s</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+async function decide(recId, decision) {
+  const res = await api('POST', '/api/decision', {rec_id:recId, decision});
+  if (res.ok) { toast(decision==='accept'?'採納成功，已下單':'已跳過'); loadJobs(); }
+  else toast(res.message||'操作失敗', false);
+}
+
+async function deleteJob(id) {
+  const res = await api('DELETE', `/api/jobs/${id}`);
+  if (res.ok) { toast('已取消工作'); loadJobs(); }
+  else toast(res.message||'刪除失敗', false);
+}
+
+// ── 投資組合 ──────────────────────────────────────────────────────────────────
+async function loadPortfolio() {
+  const p = await api('GET', '/api/portfolio');
+  const total_value = p.cash + p.positions.reduce((s,pos) => s + pos.current_price * pos.shares, 0);
+  const total_pnl   = total_value - (p.initial_cash||100000);
+
+  document.getElementById('portfolio-summary').innerHTML = `
+    <div class="card-title">帳戶總覽</div>
+    <div class="row" style="gap:30px">
+      <div><div style="color:var(--muted)">現金</div><div style="font-size:1.4rem;font-weight:700">${p.cash.toLocaleString()}</div></div>
+      <div><div style="color:var(--muted)">總資產</div><div style="font-size:1.4rem;font-weight:700">${total_value.toLocaleString()}</div></div>
+      <div><div style="color:var(--muted)">總損益</div><div style="font-size:1.4rem;font-weight:700">${fmtPnl(total_pnl)}</div></div>
+    </div>`;
+
+  const posEl = document.getElementById('positions-list');
+  if (!p.positions.length) { posEl.innerHTML = '<div style="color:var(--muted)">目前無持倉</div>'; }
+  else posEl.innerHTML = p.positions.map(pos => `
+    <div class="rec-card" style="margin-bottom:8px">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <div><b>${pos.stock}</b> ×${pos.shares}
+          <span style="color:var(--muted);font-size:12px;margin-left:8px">買入 ${pos.buy_price} · 現價 ${pos.current_price}</span>
+        </div>
+        <div class="row" style="gap:8px;align-items:center">
+          ${fmtPnl(pos.unrealized_pnl)}
+          <button class="btn-red" style="padding:4px 10px;font-size:12px" onclick="sellPos('${pos.trade_id}')">賣出</button>
+        </div>
+      </div>
+      <div style="color:var(--muted);font-size:12px;margin-top:4px">顧問：${pos.advised_by}</div>
+    </div>`).join('');
+
+  const sl = document.getElementById('settled-list');
+  sl.innerHTML = (p.settled||[]).reverse().map(s => `
+    <tr>
+      <td><b>${s.stock}</b></td>
+      <td>${s.shares}</td>
+      <td>${s.buy_price}</td>
+      <td>${s.sell_price}</td>
+      <td>${fmtPnl(s.pnl)}</td>
+      <td>${s.return_pct > 0 ? '+' : ''}${s.return_pct}%</td>
+      <td style="color:var(--muted)">${s.advised_by}</td>
+    </tr>`).join('');
+}
+
+async function sellPos(tradeId) {
+  const res = await api('POST', '/api/sell', {trade_id:tradeId});
+  if (res.ok) { toast(res.message); loadPortfolio(); }
+  else toast(res.message||'賣出失敗', false);
+}
+
+// ── 節點監控 ──────────────────────────────────────────────────────────────────
+async function loadWorkers() {
+  const workers = await api('GET', '/api/workers');
+  document.getElementById('workers-grid').innerHTML = workers.map(w => {
+    const dot = `<span class="status-dot dot-${w.status.toLowerCase()}"></span>`;
+    const cpuW = Math.min(100, w.cpu_pct||0);
+    const ramW = w.ram_total_mb ? Math.round((w.ram_used_mb/w.ram_total_mb)*100) : 0;
+    return `<div class="worker-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div><b>${w.persona}</b> <span style="color:var(--muted);font-size:12px">${w.model}</span></div>
+        <span class="badge badge-${w.status.toLowerCase()}">${dot}${w.status}</span>
+      </div>
+      <div style="color:var(--muted);font-size:12px">CPU ${w.cpu_pct||0}%</div>
+      <div class="stat-bar"><div class="stat-fill" style="width:${cpuW}%"></div></div>
+      <div style="color:var(--muted);font-size:12px;margin-top:6px">RAM ${w.ram_used_mb||0} / ${w.ram_total_mb||0} MB (${ramW}%)</div>
+      <div class="stat-bar"><div class="stat-fill" style="width:${ramW}%;background:var(--purple)"></div></div>
+      <div style="margin-top:10px;color:var(--muted);font-size:12px">
+        工作佇列：${w.queue_size||0} · 執行中：${w.current_job||'—'}
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px">
+        ${w.disabled
+          ? `<button class="btn-green" style="font-size:12px;padding:5px 10px" onclick="enableWorker('${w.id}')">啟用</button>`
+          : `<button class="btn-red"   style="font-size:12px;padding:5px 10px" onclick="disableWorker('${w.id}')">停用</button>`}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function disableWorker(id) {
+  await api('POST', `/api/workers/${id}/disable`);
+  toast('已停用');
+  loadWorkers();
+}
+async function enableWorker(id) {
+  await api('POST', `/api/workers/${id}/enable`);
+  toast('已啟用');
+  loadWorkers();
+}
+async function tickPrice(mode) {
+  const res = await api('POST', '/api/admin/tick_price', {mode});
+  if (res.ok) toast(`股價更新完成（${res.updates?.length||0} 支）`);
+  else toast('更新失敗', false);
+}
+
+// ── 顧問績效 ──────────────────────────────────────────────────────────────────
+async function loadAdvisors() {
+  const stats = await api('GET', '/api/advisors');
+  document.getElementById('advisor-stats').innerHTML = `
+    <div class="card">
+      <div class="card-title">顧問排行榜</div>
+      <table>
+        <thead><tr><th>排名</th><th>顧問</th><th>已實現損益</th><th>未實現損益</th><th>勝率</th><th>採納率</th><th>格式率</th><th>諮詢次數</th><th>平均回應</th></tr></thead>
+        <tbody>
+          ${stats.map((s,i) => `<tr>
+            <td>${i+1}</td>
+            <td><b>${s.persona}</b><div style="color:var(--muted);font-size:12px">${s.model}</div></td>
+            <td>${fmtPnl(s.realized_pnl)}</td>
+            <td>${fmtPnl(s.unrealized_pnl)}</td>
+            <td>${s.win_rate != null ? (s.win_rate*100).toFixed(0)+'%' : '—'}</td>
+            <td>${s.total_consultations ? ((s.accepted_count/(s.accepted_count+s.rejected_count)||0)*100).toFixed(0)+'%' : '—'}</td>
+            <td>${(s.format_compliance*100).toFixed(0)}%</td>
+            <td>${s.total_consultations}</td>
+            <td>${s.avg_response_s != null ? s.avg_response_s+'s' : '—'}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+// ── Auto-refresh ─────────────────────────────────────────────────────────────
+setInterval(() => {
+  if (document.getElementById('tab-consult').classList.contains('active')) loadJobs();
+}, 4000);
+
+loadJobs();
+</script>
+</body>
+</html>

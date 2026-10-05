@@ -1,0 +1,10 @@
+FROM ollama/ollama:latest
+RUN apt-get update && apt-get install -y python3 python3-pip curl --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+RUN pip3 install --no-cache-dir --break-system-packages flask requests psutil
+WORKDIR /app
+COPY worker/ .
+COPY worker/start.sh /start.sh
+RUN chmod +x /start.sh
+ENTRYPOINT []
+CMD ["/bin/bash", "/start.sh"]

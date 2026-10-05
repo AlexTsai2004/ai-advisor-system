@@ -1,0 +1,66 @@
+{
+  "QBIT": {
+    "sector": "半導體",
+    "description": "專注先進製程晶圓代工，主要客戶為 AI 加速器與手機 SoC 廠商。研發投入佔營收 8%，掌握 3nm 製程技術。",
+    "pe_ratio": 22.5,
+    "dividend_yield": 1.8,
+    "risk_level": "中",
+    "tags": ["半導體", "代工", "AI", "大型股"]
+  },
+  "LUNA": {
+    "sector": "消費電子",
+    "description": "台灣最大消費電子代工廠，產品涵蓋智慧型手機、平板電腦組裝。近年積極布局電動車零組件。",
+    "pe_ratio": 14.2,
+    "dividend_yield": 3.5,
+    "risk_level": "低",
+    "tags": ["代工", "消費電子", "電動車", "配息"]
+  },
+  "NEXO": {
+    "sector": "AI 運算",
+    "description": "美國 AI 晶片設計公司，專攻資料中心 GPU 與推論加速器。雲端廠商需求帶動營收三年複合成長 85%。",
+    "pe_ratio": 68.0,
+    "dividend_yield": 0.1,
+    "risk_level": "高",
+    "tags": ["AI", "GPU", "美股", "成長股"]
+  },
+  "VORT": {
+    "sector": "企業軟體",
+    "description": "美國企業雲端軟體龍頭，提供 CRM、ERP 訂閱服務。客戶黏性極高，年度合約續約率 95% 以上。",
+    "pe_ratio": 35.0,
+    "dividend_yield": 0.5,
+    "risk_level": "中",
+    "tags": ["SaaS", "企業軟體", "美股", "穩健成長"]
+  },
+  "KIRO": {
+    "sector": "半導體",
+    "description": "韓國記憶體晶片巨頭，DRAM 與 NAND Flash 全球市佔合計逾 30%。景氣循環特性明顯，近期受 AI 伺服器 HBM 需求拉動。",
+    "pe_ratio": 12.0,
+    "dividend_yield": 2.1,
+    "risk_level": "中高",
+    "tags": ["記憶體", "HBM", "韓股", "景氣循環"]
+  },
+  "HAON": {
+    "sector": "電機設備",
+    "description": "韓國工業電機與變頻器製造商，深耕製造業自動化領域。本益比低，負債比健康，長期穩定配息。",
+    "pe_ratio": 9.5,
+    "dividend_yield": 4.2,
+    "risk_level": "低",
+    "tags": ["電機", "自動化", "韓股", "高殖利率"]
+  },
+  "PLEX": {
+    "sector": "網路平台",
+    "description": "香港上市的中國最大網路平台集團，業務涵蓋社群、遊戲、廣告、金融科技。監管風險已逐漸消化，估值處歷史低位。",
+    "pe_ratio": 18.0,
+    "dividend_yield": 0.8,
+    "risk_level": "中高",
+    "tags": ["平台", "港股", "中概股", "估值修復"]
+  },
+  "ZORA": {
+    "sector": "電商物流",
+    "description": "香港上市的中國電商巨頭，旗下物流體系覆蓋全國。近年積極拓展東南亞市場，海外業務佔比提升至 25%。",
+    "pe_ratio": 10.5,
+    "dividend_yield": 1.2,
+    "risk_level": "中",
+    "tags": ["電商", "物流", "港股", "東南亞擴張"]
+  }
+}

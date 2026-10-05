@@ -1,0 +1,85 @@
+version: "3.8"
+
+services:
+  manager:
+    build:
+      context: .
+      dockerfile: Dockerfile.manager
+    container_name: manager
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./manager:/app
+      - shared:/shared
+    environment:
+      - PORT=5000
+      - PRICE_UPDATE_MINUTES=5
+      - MAX_RETRY=2
+      - MAX_QUEUE_PER_WORKER=1
+      - DECISION_TIMEOUT_SECONDS=600
+      - JOB_TIMEOUT_SECONDS=700
+      - MAX_TOKENS=800
+      - MANAGER_URL=http://manager:5000
+    depends_on:
+      - worker1
+      - worker2
+      - worker3
+    restart: unless-stopped
+
+  worker1:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    container_name: worker1
+    ports:
+      - "6001:6001"
+    volumes:
+      - ./worker:/app
+      - ollama_models:/root/.ollama
+    environment:
+      - WORKER_ID=advisor_qwen
+      - MODEL=qwen2.5:1.5b
+      - PERSONA=穩健哥
+      - PORT=6001
+      - CALLBACK_URL=http://manager:5000
+    restart: unless-stopped
+
+  worker2:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    container_name: worker2
+    ports:
+      - "6002:6002"
+    volumes:
+      - ./worker:/app
+      - ollama_models:/root/.ollama
+    environment:
+      - WORKER_ID=advisor_llama
+      - MODEL=llama3.2:3b
+      - PERSONA=中道姐
+      - PORT=6002
+      - CALLBACK_URL=http://manager:5000
+    restart: unless-stopped
+
+  worker3:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    container_name: worker3
+    ports:
+      - "6003:6003"
+    volumes:
+      - ./worker:/app
+      - ollama_models:/root/.ollama
+    environment:
+      - WORKER_ID=advisor_gemma
+      - MODEL=gemma2:2b
+      - PERSONA=衝勁王
+      - PORT=6003
+      - CALLBACK_URL=http://manager:5000
+    restart: unless-stopped
+
+volumes:
+  shared:
+  ollama_models:

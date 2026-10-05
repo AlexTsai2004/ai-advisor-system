@@ -1,0 +1,66 @@
+{
+  "QBIT": {
+    "name": "量子位元",
+    "market": "TW",
+    "price": 880,
+    "change": 0.0,
+    "price_history": [880],
+    "last_updated": null
+  },
+  "LUNA": {
+    "name": "月明電子",
+    "market": "TW",
+    "price": 340,
+    "change": 0.0,
+    "price_history": [340],
+    "last_updated": null
+  },
+  "NEXO": {
+    "name": "奈速運算",
+    "market": "US",
+    "price": 9500,
+    "change": 0.0,
+    "price_history": [9500],
+    "last_updated": null
+  },
+  "VORT": {
+    "name": "渦旋系統",
+    "market": "US",
+    "price": 4200,
+    "change": 0.0,
+    "price_history": [4200],
+    "last_updated": null
+  },
+  "KIRO": {
+    "name": "機路半導",
+    "market": "KR",
+    "price": 510,
+    "change": 0.0,
+    "price_history": [510],
+    "last_updated": null
+  },
+  "HAON": {
+    "name": "昊恩電機",
+    "market": "KR",
+    "price": 190,
+    "change": 0.0,
+    "price_history": [190],
+    "last_updated": null
+  },
+  "PLEX": {
+    "name": "普聯網絡",
+    "market": "HK",
+    "price": 620,
+    "change": 0.0,
+    "price_history": [620],
+    "last_updated": null
+  },
+  "ZORA": {
+    "name": "藻華科技",
+    "market": "HK",
+    "price": 275,
+    "change": 0.0,
+    "price_history": [275],
+    "last_updated": null
+  }
+}

@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from store import load_holdings, save_holdings, load_prices
+from store import load_holdings, save_holdings, load_prices, holdings_lock
 
 DEMO_USER       = "demo_user"
 INITIAL_CASH    = 100_000
@@ -15,6 +15,12 @@ def execute_trade(rec: dict, job_id: str, rec_id: str, advisor_id: str) -> dict:
     Sell: close existing position(s) for this stock, return cash.
     Returns {"ok": bool, "trade_id": str, "message": str}.
     """
+    # 整段 load→檢查現金→save 必須互斥，否則兩筆同時採納會各自看到足夠現金（重複扣款/超買）
+    with holdings_lock():
+        return _execute_trade(rec, job_id, rec_id, advisor_id)
+
+
+def _execute_trade(rec: dict, job_id: str, rec_id: str, advisor_id: str) -> dict:
     holdings = load_holdings()
     user     = holdings.get(DEMO_USER)
     if user is None:
@@ -69,7 +75,11 @@ def execute_trade(rec: dict, job_id: str, rec_id: str, advisor_id: str) -> dict:
         holding_minutes = int((now_dt - buy_dt).total_seconds() / 60)
 
         user["cash"] += revenue
-        pos["status"] = "settled"
+        if sell_shares < pos["shares"]:
+            # 部分賣出：保留剩餘股數繼續追蹤（原本整筆標成 settled，剩下的股數會憑空消失）
+            pos["shares"] -= sell_shares
+        else:
+            pos["status"] = "settled"
 
         trade_id = f"trade_{rec_id[-6:]}_sell"
         user.setdefault("settled", []).append({
@@ -95,6 +105,11 @@ def execute_trade(rec: dict, job_id: str, rec_id: str, advisor_id: str) -> dict:
 
 def sell_position(trade_id: str) -> dict:
     """Manually sell a tracking position by trade_id."""
+    with holdings_lock():
+        return _sell_position(trade_id)
+
+
+def _sell_position(trade_id: str) -> dict:
     holdings = load_holdings()
     user     = holdings.get(DEMO_USER, {})
     prices   = load_prices()

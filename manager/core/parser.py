@@ -33,7 +33,8 @@ def parse_response(text: str) -> dict | None:
             except json.JSONDecodeError:
                 pass
 
-    if data is None:
+    # 模型可能輸出合法 JSON 但不是物件（例如陣列或字串），後面的 .get 會直接拋例外
+    if not isinstance(data, dict):
         return None
 
     recs = data.get("recommendations")
@@ -57,6 +58,8 @@ def parse_response(text: str) -> dict | None:
 
     cleaned_recs = []
     for r in recs:
+        if not isinstance(r, dict):
+            continue
         stock  = str(r.get("stock", "")).upper()
         action = str(r.get("action", "")).lower()
         shares = r.get("shares", 0)
@@ -78,7 +81,12 @@ def parse_response(text: str) -> dict | None:
     if not cleaned_recs:
         return None
 
-    confidence = float(data.get("confidence", 0.5))
+    try:
+        confidence = float(data.get("confidence", 0.5))
+    except (TypeError, ValueError):
+        confidence = 0.5
+    if confidence != confidence:  # NaN
+        confidence = 0.5
     confidence = max(0.0, min(1.0, confidence))
 
     horizon = str(data.get("horizon", "medium")).lower()

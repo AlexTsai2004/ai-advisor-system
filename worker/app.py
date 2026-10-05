@@ -83,7 +83,7 @@ def _run_inference(job_id: str, prompt: str, max_tokens: int, callback_url: str,
         if callback_url:
             requests.post(
                 f"{callback_url}/api/internal/done",
-                json={"job_id": job_id, "response_text": text, "elapsed_ms": elapsed},
+                json={"job_id": job_id, "worker_id": WORKER_ID, "response_text": text, "elapsed_ms": elapsed},
                 timeout=10,
             )
     except Exception as e:
@@ -91,13 +91,13 @@ def _run_inference(job_id: str, prompt: str, max_tokens: int, callback_url: str,
             try:
                 requests.post(
                     f"{callback_url}/api/internal/failed",
-                    json={"job_id": job_id, "error_type": "inference_error", "error_msg": str(e)},
+                    json={"job_id": job_id, "worker_id": WORKER_ID, "error_type": "inference_error", "error_msg": str(e)},
                     timeout=10,
                 )
             except Exception:
                 pass
     finally:
-        unregister(job_id)
+        unregister(job_id, cancel_ev)
         with _lock:
             _queue_size  = max(0, _queue_size - 1)
             _current_job = None

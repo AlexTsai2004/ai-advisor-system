@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify
-from store import load_jobs, save_jobs, load_holdings, load_prices
+from store import load_jobs, save_jobs, load_holdings, load_prices, jobs_lock
 from core.trade import execute_trade, sell_position
 
 bp = Blueprint("portfolio", __name__)
@@ -40,43 +40,51 @@ def decision():
     if decision not in ("accept", "reject"):
         return jsonify({"ok": False, "message": "decision 必須是 accept 或 reject"}), 400
 
-    jobs = load_jobs()
-    job  = None
-    rec  = None
-    for j in jobs:
-        for r in j.get("recommendations", []):
-            if r.get("rec_id") == rec_id:
-                job = j
-                rec = r
+    # 整段持鎖：避免同一建議被連點兩次而下單兩次，也避免與 dispatcher 互相覆蓋 jobs.json
+    with jobs_lock():
+        jobs = load_jobs()
+        job  = None
+        rec  = None
+        for j in jobs:
+            for r in j.get("recommendations", []):
+                if r.get("rec_id") == rec_id:
+                    job = j
+                    rec = r
+                    break
+            if rec:
                 break
-        if rec:
-            break
 
-    if not rec:
-        return jsonify({"ok": False, "message": "找不到建議"}), 404
-    if rec.get("user_decision"):
-        return jsonify({"ok": False, "message": "此建議已決策"}), 400
+        if not rec:
+            return jsonify({"ok": False, "message": "找不到建議"}), 404
+        if rec.get("user_decision"):
+            return jsonify({"ok": False, "message": "此建議已決策"}), 400
+        # 已過決策期限（EXPIRED）的建議不可再下單；dispatcher 每 0.5 秒才掃一次，所以也直接比對 deadline
+        deadline = job.get("decision_deadline")
+        expired  = deadline and datetime.now(timezone.utc).isoformat() > deadline
+        if job.get("status") not in ("RESPONDED", "ACCEPTED", "REJECTED") or expired:
+            return jsonify({"ok": False, "message": "此建議已過期，無法決策"}), 400
 
-    rec["user_decision"] = decision
-    rec["decided_at"]    = datetime.now(timezone.utc).isoformat()
+        rec["user_decision"] = decision
+        rec["decided_at"]    = datetime.now(timezone.utc).isoformat()
 
-    trade_id = None
-    if decision == "accept":
-        result = execute_trade(rec, job["id"], rec_id, job.get("assigned_worker", ""))
-        if result["ok"]:
-            trade_id      = result.get("trade_id")
-            rec["trade_id"] = trade_id
-        else:
-            return jsonify({"ok": False, "message": result["message"]}), 400
+        trade_id = None
+        # hold 建議沒有交易可執行，採納只記錄決策（原本會被 execute_trade 回「不支援的操作」而永遠無法採納）
+        if decision == "accept" and rec.get("action") != "hold":
+            result = execute_trade(rec, job["id"], rec_id, job.get("assigned_worker", ""))
+            if result["ok"]:
+                trade_id      = result.get("trade_id")
+                rec["trade_id"] = trade_id
+            else:
+                return jsonify({"ok": False, "message": result["message"]}), 400
 
-    # Update job status
-    all_recs    = job.get("recommendations", [])
-    decided     = [r for r in all_recs if r.get("user_decision")]
-    accepted    = [r for r in all_recs if r.get("user_decision") == "accept"]
-    if len(decided) == len(all_recs):
-        job["status"] = "ACCEPTED" if accepted else "REJECTED"
+        # Update job status
+        all_recs    = job.get("recommendations", [])
+        decided     = [r for r in all_recs if r.get("user_decision")]
+        accepted    = [r for r in all_recs if r.get("user_decision") == "accept"]
+        if len(decided) == len(all_recs):
+            job["status"] = "ACCEPTED" if accepted else "REJECTED"
 
-    save_jobs(jobs)
+        save_jobs(jobs)
     return jsonify({"ok": True, "trade_id": trade_id})
 
 

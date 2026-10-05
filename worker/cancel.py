@@ -21,9 +21,11 @@ def cancel(job_id: str) -> bool:
     return False
 
 
-def unregister(job_id: str):
+def unregister(job_id: str, ev=None):
     with _lock:
-        _cancel_events.pop(job_id, None)
+        # 同一 job 重試又派到同一台時，舊執行緒結束不可移除新執行緒的 event
+        if ev is None or _cancel_events.get(job_id) is ev:
+            _cancel_events.pop(job_id, None)
 
 
 def is_cancelled(job_id: str) -> bool:

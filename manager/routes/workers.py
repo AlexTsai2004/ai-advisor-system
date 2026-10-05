@@ -64,15 +64,17 @@ def disable_worker(worker_id):
             requests.post(f"{worker_url}/cancel/{running_job}", timeout=2)
         except Exception:
             pass
-        from store import load_jobs, save_jobs
-        jobs = load_jobs()
-        for j in jobs:
-            if j["id"] == running_job and j.get("status") == "RUNNING":
-                j["status"]          = "QUEUED"
-                j["assigned_worker"] = None
-                j["started_at"]      = None
-                break
-        save_jobs(jobs)
+        from store import load_jobs, save_jobs, jobs_lock
+        with jobs_lock():
+            jobs = load_jobs()
+            for j in jobs:
+                if (j["id"] == running_job and j.get("status") == "RUNNING"
+                        and j.get("assigned_worker") == worker_id):
+                    j["status"]          = "QUEUED"
+                    j["assigned_worker"] = None
+                    j["started_at"]      = None
+                    break
+            save_jobs(jobs)
 
     return jsonify({"ok": True})
 

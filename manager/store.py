@@ -2,7 +2,18 @@ import os, json, shutil, threading
 from core.locks import FileLock, SHARED
 
 # Process-level lock：保護整段 load→修改→save，防止 fanout 時多個 callback 互蓋
-_jobs_rlock = threading.RLock()
+# 使用方式：with jobs_lock(): jobs = load_jobs(); ...; save_jobs(jobs)
+# 鎖順序：jobs_lock → holdings_lock → STATE_LOCK（取得順序固定，避免死結）
+_jobs_rlock     = threading.RLock()
+_holdings_rlock = threading.RLock()
+
+
+def jobs_lock():
+    return _jobs_rlock
+
+
+def holdings_lock():
+    return _holdings_rlock
 
 JOBS_FILE       = os.path.join(SHARED, "jobs.json")
 PRICES_FILE     = os.path.join(SHARED, "prices.json")
@@ -42,12 +53,13 @@ def get_job(job_id):
 
 
 def update_job(job_id, **fields):
-    jobs = load_jobs()
-    for j in jobs:
-        if j["id"] == job_id:
-            j.update(fields)
-            break
-    save_jobs(jobs)
+    with _jobs_rlock:
+        jobs = load_jobs()
+        for j in jobs:
+            if j["id"] == job_id:
+                j.update(fields)
+                break
+        save_jobs(jobs)
 
 
 # ── Prices ────────────────────────────────────────────────────────────────────
@@ -75,7 +87,7 @@ def load_holdings():
 
 
 def save_holdings(holdings):
-    with FileLock("holdings"):
+    with _holdings_rlock, FileLock("holdings"):
         with open(HOLDINGS_FILE, 'w') as f:
             json.dump(holdings, f, ensure_ascii=False, indent=2)
 

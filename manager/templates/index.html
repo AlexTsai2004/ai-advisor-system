@@ -159,6 +159,11 @@ async function api(method, path, body) {
   return r.json();
 }
 
+// LLM 輸出與使用者輸入都要跳脫後才能塞進 innerHTML，否則含 < > 的回應會破壞版面或被當成 HTML 執行
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
 function fmtPnl(v) {
   if (v == null) return '—';
   const cls = v >= 0 ? 'pnl-pos' : 'pnl-neg';
@@ -211,13 +216,15 @@ async function loadJobs() {
       const decided = r.user_decision;
       const btns = decided
         ? `<span class="badge badge-${decided==='accept'?'accepted':'rejected'}">${decided==='accept'?'已採納':'已跳過'}</span>`
+        : j.status !== 'RESPONDED'
+        ? `<span class="badge badge-expired">未決策</span>`
         : `<div class="rec-buttons">
             <button class="btn-green" onclick="decide('${r.rec_id}','accept')">採納</button>
             <button class="btn-muted" onclick="decide('${r.rec_id}','reject')">跳過</button>
            </div>`;
       return `<div class="rec-card">
-        <b>${r.stock}</b> · ${r.action} · ${r.shares} 股
-        <div style="color:var(--muted);margin:4px 0">${r.rationale}</div>
+        <b>${esc(r.stock)}</b> · ${esc(r.action)} · ${esc(r.shares)} 股
+        <div style="color:var(--muted);margin:4px 0">${esc(r.rationale)}</div>
         ${btns}
       </div>`;
     }).join('');
@@ -225,14 +232,14 @@ async function loadJobs() {
     const canDel = j.status === 'QUEUED';
     return `<div class="job-card">
       <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px;">
-        <span style="font-weight:600">${j.query?.slice(0,60)||'—'}</span>
+        <span style="font-weight:600">${esc(j.query?.slice(0,60)||'—')}</span>
         <div class="row" style="gap:8px;align-items:center;">
           ${statusBadge(j.status)}
           ${j.assigned_worker ? `<span style="color:var(--muted);font-size:12px">${j.assigned_worker}</span>` : ''}
           ${canDel ? `<button class="btn-red" style="padding:4px 10px;font-size:12px" onclick="deleteJob('${j.id}')">刪除</button>` : ''}
         </div>
       </div>
-      ${j.response_text ? `<div style="color:var(--muted);font-size:13px;margin-bottom:8px;max-height:80px;overflow:auto">${j.response_text.slice(0,300)}...</div>` : ''}
+      ${j.response_text ? `<div style="color:var(--muted);font-size:13px;margin-bottom:8px;max-height:80px;overflow:auto">${esc(j.response_text.slice(0,300))}...</div>` : ''}
       ${recs}
       ${j.elapsed_ms ? `<div style="color:var(--muted);font-size:12px;margin-top:6px">回應時間：${(j.elapsed_ms/1000).toFixed(1)}s</div>` : ''}
     </div>`;

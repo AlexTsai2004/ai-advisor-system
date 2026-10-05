@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone, timedelta
 from flask import Blueprint, request, jsonify, current_app
-from store import load_jobs, save_jobs
+from store import load_jobs, save_jobs, jobs_lock
 from core.rag import build_prompt
 from personas import ADVISORS
 
@@ -54,13 +54,13 @@ def consult():
     if not query:
         return jsonify({"ok": False, "message": "查詢內容不得為空"}), 400
 
-    jobs = load_jobs()
-
     if mode == "fanout":
         group_id = f"grp_{uuid.uuid4().hex[:6]}"
         new_jobs = [_make_job(query, aid, group_id) for aid in ADVISORS]
-        jobs.extend(new_jobs)
-        save_jobs(jobs)
+        with jobs_lock():
+            jobs = load_jobs()
+            jobs.extend(new_jobs)
+            save_jobs(jobs)
         return jsonify({"group_id": group_id, "job_ids": [j["id"] for j in new_jobs]})
 
     advisor_id = data.get("advisor", next(iter(ADVISORS)))
@@ -68,8 +68,10 @@ def consult():
         return jsonify({"ok": False, "message": f"未知顧問 {advisor_id}"}), 400
 
     job = _make_job(query, advisor_id)
-    jobs.append(job)
-    save_jobs(jobs)
+    with jobs_lock():
+        jobs = load_jobs()
+        jobs.append(job)
+        save_jobs(jobs)
     return jsonify({"job_id": job["id"]})
 
 
@@ -108,12 +110,13 @@ def get_job(job_id):
 
 @bp.route("/api/jobs/<job_id>", methods=["DELETE"])
 def delete_job(job_id):
-    jobs = load_jobs()
-    job  = next((j for j in jobs if j["id"] == job_id), None)
-    if not job:
-        return jsonify({"ok": False, "message": "找不到工作"}), 404
-    if job.get("status") != "QUEUED":
-        return jsonify({"ok": False, "message": "只能刪除排隊中的工作"}), 400
-    job["status"] = "CANCELLED"
-    save_jobs(jobs)
+    with jobs_lock():
+        jobs = load_jobs()
+        job  = next((j for j in jobs if j["id"] == job_id), None)
+        if not job:
+            return jsonify({"ok": False, "message": "找不到工作"}), 404
+        if job.get("status") != "QUEUED":
+            return jsonify({"ok": False, "message": "只能刪除排隊中的工作"}), 400
+        job["status"] = "CANCELLED"
+        save_jobs(jobs)
     return jsonify({"ok": True})
